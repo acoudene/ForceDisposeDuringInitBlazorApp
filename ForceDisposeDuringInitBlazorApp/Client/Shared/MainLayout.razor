@@ -35,11 +35,11 @@
     // 3. On demande par JS d'afficher une nouvelle page dans un nouvel onglet
     await JsRuntime.InvokeVoidAsync("OpenNewTab", @"https://localhost:7039");
 
-    // 4. A priori, quelque chose demande à détruire la page courante, simulé ici 
-    Dispose();
-
-    // 5. On demande un changement d'état de notification => On arrive sur DoSomethingAsync()
+    // 4. On demande un changement d'état de notification => On arrive sur DoSomethingAsync()
     await _notificationService.NotifyAsync();
+
+    // 5. A priori, quelque chose demande à détruire la page courante, simulé ici 
+    Dispose();    
   }
 
   protected override async Task OnInitializedAsync()
@@ -52,7 +52,11 @@
 
     var token = _cts.Token;
     token.ThrowIfCancellationRequested();
+
+    if (_myString == null) throw new InvalidOperationException("Instance disposée !");
     string toLowerValue = _myString.ToLower();
+
+    await Task.CompletedTask;
   }
 
   private async Task OnNotifiedAsync()
@@ -64,12 +68,14 @@
   private async Task DoSomethingAsync()
   {
     // 10. On attend suffisamment pour être sûr que l'objet est disposé
-    Thread.Sleep(2000);
+    await Task.Delay(5000);
 
     // 11. On se prend une exception car les instances sont disposées.
+    if (_myString == null) throw new InvalidOperationException("Instance disposée !");
+    string toLowerValue = _myString.ToLower();
+
     var token = _cts.Token;
     token.ThrowIfCancellationRequested();
-    string toLowerValue = _myString.ToLower();
     await Task.CompletedTask;
   }
 
@@ -81,9 +87,9 @@
     {
       if (disposing)
       {
-        // 7. A priori, le désabonnement passe trop tardivement, je le mets en commentaire pour simuler
-        //if (_eventHandler != null)
-        //  _notificationService.NotifiedEvent -= _eventHandler;
+        // 7. A priori, le désabonnement passe après avoir reçu la notification (donc trop tard)
+        if (_eventHandler != null)
+            _notificationService.NotifiedEvent -= _eventHandler;
 
         // 8. Les instances de l'objet sont détruites.
         _myString = null;
