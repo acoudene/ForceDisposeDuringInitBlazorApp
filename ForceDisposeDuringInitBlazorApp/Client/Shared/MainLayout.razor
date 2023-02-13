@@ -1,0 +1,105 @@
+﻿@using ForceDisposeDuringInitBlazorApp.Client.Services;
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject IJSRuntime JsRuntime
+
+<div class="page">
+  <div class="sidebar">
+    <NavMenu />
+  </div>
+
+  <main>
+    <div class="top-row px-4">
+      <a href="https://docs.microsoft.com/aspnet/" target="_blank">About</a>
+      <button class="btn btn-primary" @onclick="@(async ()=>await CallNewTabAsync())">Click me</button>
+
+    </div>
+
+    <article class="content px-4">
+      @Body
+    </article>
+  </main>
+</div>
+
+@code {
+
+  private NotificationService _notificationService = new NotificationService();
+
+  private EventHandler? _eventHandler = null;
+  private string? _myString = "InitialValue";
+  private CancellationTokenSource _cts = new CancellationTokenSource();
+
+  // 2. Un clic sur ce bouton est effectué
+  private async Task CallNewTabAsync()
+  {    
+    // 3. On demande par JS d'afficher une nouvelle page dans un nouvel onglet
+    await JsRuntime.InvokeVoidAsync("OpenNewTab", @"https://localhost:7039");
+
+    // 4. A priori, quelque chose demande à détruire la page courante, simulé ici 
+    Dispose();
+
+    // 5. On demande un changement d'état de notification => On arrive sur DoSomethingAsync()
+    await _notificationService.NotifyAsync();
+  }
+
+  protected override async Task OnInitializedAsync()
+  {
+    // 1. On initialise tout ici 
+
+    _eventHandler = async (sender, args) => await OnNotifiedAsync();
+    _notificationService.NotifiedEvent -= _eventHandler;
+    _notificationService.NotifiedEvent += _eventHandler;
+
+    var token = _cts.Token;
+    token.ThrowIfCancellationRequested();
+    string toLowerValue = _myString.ToLower();
+  }
+
+  private async Task OnNotifiedAsync()
+  {
+    // 9. On arrive en asynchrone ici
+    await DoSomethingAsync();
+  }
+
+  private async Task DoSomethingAsync()
+  {
+    // 10. On attend suffisamment pour être sûr que l'objet est disposé
+    Thread.Sleep(2000);
+
+    // 11. On se prend une exception car les instances sont disposées.
+    var token = _cts.Token;
+    token.ThrowIfCancellationRequested();
+    string toLowerValue = _myString.ToLower();
+    await Task.CompletedTask;
+  }
+
+  private bool _disposedValue = false;
+  protected virtual void Dispose(bool disposing)
+  {
+    // 6. Le dispose est appelé ici 
+    if (!_disposedValue)
+    {
+      if (disposing)
+      {
+        // 7. A priori, le désabonnement passe trop tardivement, je le mets en commentaire pour simuler
+        //if (_eventHandler != null)
+        //  _notificationService.NotifiedEvent -= _eventHandler;
+
+        // 8. Les instances de l'objet sont détruites.
+        _myString = null;
+        _cts.Cancel();
+        _cts.Dispose();
+      }
+
+      _disposedValue = true;
+
+    }
+  }
+
+  public void Dispose()
+  {
+    // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+    Dispose(disposing: true);
+    GC.SuppressFinalize(this);
+  }
+}
